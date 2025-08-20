@@ -277,8 +277,8 @@ exportMonthlyRasters(climTmean, 'tmean_C', 'TmeanC');
 exportMonthlyRasters(climTmin,  'tmin_C',  'TminC');
 exportMonthlyRasters(climTmax,  'tmax_C',  'TmaxC');
 // If desired (optional):
-// exportMonthlyRasters(climU10,   'u10',     'U10');
-// exportMonthlyRasters(climV10,   'v10',     'V10');
+exportMonthlyRasters(climU10,   'u10',     'U10');
+exportMonthlyRasters(climV10,   'v10',     'V10');
 
 
 // ============================== CHARTS ====================================
@@ -441,7 +441,7 @@ updateMap();  // initialize
 
 // ============================ NOTES =======================================
 // - Exports: After running, open the Tasks tab and start the export tasks.
-// - Scale: using native ERA5 scale (~27 km). Change 'scale' in Export if needed.
+// - Scale: using native ERA5 scale (~11 km). Change 'scale' in Export if needed.
 // - Wind components (u10, v10) are loaded & converted; adapt if you want to export/chart them.
 // - If your AOI asset is a single Geometry or Feature, the FC cast still works.
 // - For very small AOIs, consider increasing scale (e.g., 5000 m) for smooth charts.

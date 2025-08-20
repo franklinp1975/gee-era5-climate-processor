@@ -13,8 +13,8 @@
  * Bands used:
  *   total_precipitation (m)       -> tp_mm
  *   mean_2m_air_temperature (K)   -> tmean_C
- *   minimum_2m_air_temperature(K) -> tmin_C
- *   maximum_2m_air_temperature(K) -> tmax_C
+ *   minimum_2m_air_temperature(K) -> tmin_C.
+ *   maximum_2m_air_temperature(K) -> tmax_C.
  *   u_component_of_wind_10m       -> u10  (m s-1)
  *   v_component_of_wind_10m       -> v10  (m s-1)
  * ===================================================================== **/
@@ -23,11 +23,11 @@
 // ========================== USER PARAMETERS =============================
 
 // 1) AOI asset (FeatureCollection or Geometry). Replace with your asset ID.
-var AOI_ASSET_ID = "projects/ee-franklinparedes75/assets/Cojedes_Guarico";	// <-- EDIT THIS
+var AOI_ASSET_ID = "users/franklinparedes75/OrinocoRiverBasin"; // <-- EDIT THIS
 
 // 2) Analysis years (inclusive)
-var START_YEAR = 1990;  // <-- EDIT THIS
-var END_YEAR   = 2020;  // <-- EDIT THIS
+var START_YEAR = 1990;  // <-- EDIT THIS. START_YEAR > 1950
+var END_YEAR   = 2022;  // <-- EDIT THIS. END_YEAR ≤ 2025
 
 // 3) Averaging metric for monthly climatology across years: 'mean' or 'median'
 var AVERAGING_METRIC = 'mean'; // <-- EDIT THIS
@@ -36,7 +36,7 @@ var AVERAGING_METRIC = 'mean'; // <-- EDIT THIS
 var DRIVE_FOLDER = 'EE_ERA5_Monthly';
 
 // 5) Resampling for outcomes
-var nativeScale = 5000; // // nativeScale native ERA5 = 27830 m; change if you need
+var nativeScale = 5000; // // nativeScale native ERA5 = 11132 meters; change if you need
 
 // Optional: default map zoom level (after centering on AOI)
 var MAP_ZOOM = 6;
@@ -118,7 +118,7 @@ function monthlyClimatology(ic, band, metric) {
 var img = composite.rename(band)
  .set('month', m)
  .set('band', band)
- .set('metric', metric);;
+ .set('metric', metric);
     return img;
   });
   return ee.ImageCollection(imgs);
@@ -139,19 +139,19 @@ function annualSeries(ic, band, method, region, scale) {
   var years = ee.List.sequence(START_YEAR, END_YEAR);
   var feats = years.map(function(y) {
     y = ee.Number(y);
-    var ycol = ic.filter(ee.Filter.calendarRange(y, y, 'year')).select([band]);
-    var yimg = ee.Image(ee.Algorithms.If(
-      method === 'sum', ycol.sum(), ycol.mean()
-    )).rename(band);
-    var val = ee.Number(
-      yimg.reduceRegion({
-        reducer: ee.Reducer.mean(),
-        geometry: region,
-        scale: scale,
-        bestEffort: true,
-        maxPixels: 1e13
-      }).get(band)
-    );
+    var ycol = ic.filter(ee.Filter.calendarRange(y, y, 'year')).select(band);
+  var yimg = ee.Image(ee.Algorithms.If(
+  method === 'sum', ycol.sum(), ycol.mean()
+)).rename('v');  // <- constant key
+
+var dict = yimg.reduceRegion({
+  reducer: ee.Reducer.mean(),
+  geometry: region,
+  scale: scale,
+  bestEffort: true,
+  maxPixels: 1e13
+});
+var val = ee.Number(dict.get('v'));
     return ee.Feature(null, {'year': y, 'value': val});
   });
   return ee.FeatureCollection(feats);
@@ -171,15 +171,17 @@ function monthlyValuesForChart(monthlyIC, band, region, scale) {
   var feats = months.map(function(m) {
     m = ee.Number(m);
     var img = ee.Image(
-      monthlyIC.filter(ee.Filter.eq('month', m)).first()
-    ).select([band]);
-    var val = ee.Number(img.reduceRegion({
-      reducer: ee.Reducer.mean(),
-      geometry: region,
-      scale: scale,
-      bestEffort: true,
-      maxPixels: 1e13
-    }).get(band));
+  monthlyIC.filter(ee.Filter.eq('month', m)).first()
+).select(band).rename('v');
+
+var dict = img.reduceRegion({
+  reducer: ee.Reducer.mean(),
+  geometry: region,
+  scale: scale,
+  bestEffort: true,
+  maxPixels: 1e13
+});
+var val = ee.Number(dict.get('v'));
     var label = ee.String(MONTH_NAMES_EE.get(m.subtract(1)));
     return ee.Feature(null, {'month': m, 'label': label, 'value': val});
   });
@@ -197,23 +199,23 @@ var startDate = ee.Date.fromYMD(START_YEAR, 1, 1);
 var endDate   = ee.Date.fromYMD(END_YEAR, 12, 31);
 
 // ERA5 Monthly collection and bands we need
-var ERA5 = ee.ImageCollection('ECMWF/ERA5/MONTHLY')
+var ERA5 = ee.ImageCollection('ECMWF/ERA5_LAND/MONTHLY_AGGR')
   .filterDate(startDate, endDate.advance(1, 'day'))
   .select([
-    'total_precipitation',
-    'mean_2m_air_temperature',
-    'minimum_2m_air_temperature',
-    'maximum_2m_air_temperature',
+    'total_precipitation_sum',
+    'temperature_2m',
+    'temperature_2m_min',
+    'temperature_2m_max',
     'u_component_of_wind_10m',
     'v_component_of_wind_10m'
   ]);
 
 // Unit conversions + rename for clarity
 var ERA5x = ERA5.map(function(img) {
-  var tp_mm = img.select('total_precipitation').multiply(1000).rename('tp_mm');      // m -> mm
-  var tmean = img.select('mean_2m_air_temperature').subtract(273.15).rename('tmean_C');
-  var tmin  = img.select('minimum_2m_air_temperature').subtract(273.15).rename('tmin_C');
-  var tmax  = img.select('maximum_2m_air_temperature').subtract(273.15).rename('tmax_C');
+  var tp_mm = img.select('total_precipitation_sum').multiply(1000).rename('tp_mm');      // m -> mm
+  var tmean = img.select('temperature_2m').subtract(273.15).rename('tmean_C');
+  var tmin  = img.select('temperature_2m_min').subtract(273.15).rename('tmin_C');
+  var tmax  = img.select('temperature_2m_max').subtract(273.15).rename('tmax_C');
   var u10   = img.select('u_component_of_wind_10m').rename('u10');
   var v10   = img.select('v_component_of_wind_10m').rename('v10');
   // Keep time_start for calendaring
@@ -234,8 +236,8 @@ var climTmin  = monthlyClimatology(ERA5x, 'tmin_C',  metric);
 var climTmax  = monthlyClimatology(ERA5x, 'tmax_C',  metric);
 
 // (Wind components are loaded/converted above and available if needed)
-// var climU10 = monthlyClimatology(ERA5x, 'u10', metric);
-// var climV10 = monthlyClimatology(ERA5x, 'v10', metric);
+var climU10 = monthlyClimatology(ERA5x, 'u10', metric);
+var climV10 = monthlyClimatology(ERA5x, 'v10', metric);
 
 // ============================== EXPORTS ===================================
 /**

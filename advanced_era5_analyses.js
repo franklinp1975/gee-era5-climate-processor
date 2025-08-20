@@ -106,14 +106,16 @@ function monthlyClimatology(ic, band, metric) {
     var mcol = ic
       .filter(ee.Filter.calendarRange(m, m, 'month'))
       .select([band]);
-    var img = ee.Image(ee.Algorithms.If(
-      metric === 'median',
-      mcol.median(),
-      mcol.mean()
-    )).rename(band)
-     .set('month', m)
-     .set('band', band)
-     .set('metric', metric);
+  var composite;
+  if (metric === 'median') {
+  composite = mcol.median();
+  } else {
+  composite = mcol.mean();
+  }
+var img = composite.rename(band)
+ .set('month', m)
+ .set('band', band)
+ .set('metric', metric);;
     return img;
   });
   return ee.ImageCollection(imgs);
@@ -258,7 +260,7 @@ function exportMonthlyRasters(monthlyIC, band, varLabel) {
       folder: DRIVE_FOLDER,
       fileNamePrefix: fileBase,
       region: AOI,
-      scale: nativeScale,   // native ERA5 (~27 km); change if you need
+      scale: 5000,   // 'scale: nativeScale' native ERA5 (~27 km); change if you need
       maxPixels: 1e13
     });
   }

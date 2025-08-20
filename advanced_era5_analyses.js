@@ -35,6 +35,9 @@ var AVERAGING_METRIC = 'mean'; // <-- EDIT THIS
 // 4) Google Drive folder for exports
 var DRIVE_FOLDER = 'EE_ERA5_Monthly';
 
+// 5) Resampling for outcomes
+var nativeScale = 5000; // // nativeScale native ERA5 = 27830 m; change if you need
+
 // Optional: default map zoom level (after centering on AOI)
 var MAP_ZOOM = 6;
 
@@ -219,7 +222,7 @@ var ERA5x = ERA5.map(function(img) {
 });
 
 // Use native ERA5 pixel scale
-var nativeScale = ee.Image(ERA5x.first()).projection().nominalScale();
+// var nativeScale = ee.Image(ERA5x.first()).projection().nominalScale();
 
 // ===================== MONTHLY CLIMATOLOGIES (12) ========================
 
@@ -260,7 +263,7 @@ function exportMonthlyRasters(monthlyIC, band, varLabel) {
       folder: DRIVE_FOLDER,
       fileNamePrefix: fileBase,
       region: AOI,
-      scale: 5000,   // 'scale: nativeScale' native ERA5 (~27 km); change if you need
+      scale: nativeScale,   
       maxPixels: 1e13
     });
   }

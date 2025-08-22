@@ -272,6 +272,7 @@ function exportMonthlyRasters(monthlyIC, band, varLabel) {
 }
 
 // Trigger export task creation (comment out any you don’t want)
+/*
 exportMonthlyRasters(climTP,    'tp_mm',   'TPmm');
 exportMonthlyRasters(climTmean, 'tmean_C', 'TmeanC');
 exportMonthlyRasters(climTmin,  'tmin_C',  'TminC');
@@ -279,7 +280,7 @@ exportMonthlyRasters(climTmax,  'tmax_C',  'TmaxC');
 // If desired (optional):
 exportMonthlyRasters(climU10,   'u10',     'U10');
 exportMonthlyRasters(climV10,   'v10',     'V10');
-
+*/
 
 // ============================== CHARTS ====================================
 
@@ -422,6 +423,61 @@ panel.add(chartAnnualTmean);
 panel.add(chartAnnualTmin);
 panel.add(chartAnnualTmax);
 
+// ======================= POINT OF INTEREST (POI) ANALYSIS =======================
+
+// A panel to hold the POI chart
+var poiPanel = ui.Panel([ui.Label('Click on the map to generate a time series chart for a point.', {margin: '8px 0 0 8px'})]);
+panel.add(ui.Label('Point-of-Interest Time Series', {fontWeight: 'bold', margin: '12px 0 4px 0'}));
+panel.add(poiPanel);
+
+
+/**
+ * Handles map clicks to generate a time series chart for the clicked point.
+ * @param {object} coords - The coordinates of the click event.
+ */
+function handleMapClick(coords) {
+  // Create a point geometry from the click coordinates.
+  var point = ee.Geometry.Point(coords.lon, coords.lat);
+  
+  // Add a marker to the map.
+  var pointMarker = ui.Map.Layer(point, {color: 'FF0000'}, 'Selected Point');
+  Map.layers().set(2, pointMarker); // Add or replace the marker layer.
+
+  // Generate the chart.
+  var poiChart = ui.Chart.image.series({
+    imageCollection: ERA5x.select(['tp_mm', 'tmean_C', 'tmin_C', 'tmax_C']),
+    region: point,
+    reducer: ee.Reducer.mean(),
+    scale: nativeScale,
+    xProperty: 'system:time_start'
+  }).setOptions({
+    title: 'Monthly Climate Time Series at (' + 
+           coords.lon.toFixed(4) + ', ' + coords.lat.toFixed(4) + ')',
+    vAxes: {
+      0: {title: 'Temperature (°C)', series: {1: {targetAxisIndex: 0}, 2: {targetAxisIndex: 0}, 3: {targetAxisIndex: 0}}},
+      1: {title: 'Precipitation (mm)', series: {0: {targetAxisIndex: 1}}, baselineColor: 'transparent'}
+    },
+    hAxis: {title: 'Date', format: 'MMM-yyyy'},
+    series: {
+      0: {color: COLOR_MONTHLY.tp,    targetAxisIndex: 1}, // tp_mm
+      1: {color: COLOR_MONTHLY.tmean, targetAxisIndex: 0}, // tmean_C
+      2: {color: COLOR_MONTHLY.tmin,  targetAxisIndex: 0}, // tmin_C
+      3: {color: COLOR_MONTHLY.tmax,  targetAxisIndex: 0}  // tmax_C
+    },
+    interpolateNulls: true,
+    lineWidth: 1,
+    pointSize: 2
+  });
+
+  // Replace the placeholder label with the new chart.
+  poiPanel.widgets().set(0, poiChart);
+}
+
+// Register the map click handler.
+Map.onClick(handleMapClick);
+
+// =================================================================================
+
 ui.root.insert(0, panel);
 
 // Add/update map layer
@@ -432,10 +488,17 @@ function updateMap() {
   var ic = VAR_TO_IC[vLabel];
   var band = VAR_TO_BAND[vLabel];
   var img = ee.Image(ic.filter(ee.Filter.eq('month', m)).first()).select([band]).clip(AOI);
-  Map.layers().reset([
-    ui.Map.Layer(aoiOutline, {palette:['000000']}, 'AOI'),
-    ui.Map.Layer(img, VIZ[band], currentLayerName + ' — ' + vLabel + ' — ' + MONTH_NAMES[m-1])
-  ]);
+  
+  // Preserve the AOI and the point marker when updating the map
+  var aoiLayer = ui.Map.Layer(aoiOutline, {palette:['000000']}, 'AOI');
+  var climatologyLayer = ui.Map.Layer(img, VIZ[band], currentLayerName + ' — ' + vLabel + ' — ' + MONTH_NAMES[m-1]);
+  
+  var layers = [aoiLayer, climatologyLayer];
+  if (Map.layers().length() > 2) {
+    layers.push(Map.layers().get(2)); // Keep the point layer if it exists
+  }
+  
+  Map.layers().reset(layers);
 }
 updateMap();  // initialize
 
